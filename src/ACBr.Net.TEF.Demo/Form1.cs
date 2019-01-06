@@ -21,7 +21,23 @@ namespace ACBr.Net.TEF.Demo
 
         private void TefOnOnInfoVenda(object sender, InfoVendaEventArgs e)
         {
-            e.EstadoVenda = EstadoVenda.Livre;
+            switch (e.Operacao)
+            {
+                case InfoVenda.SubTotal:
+                    e.Valor = 0;
+                    break;
+
+                case InfoVenda.EstadoVenda:
+                    e.EstadoVenda = EstadoVenda.Livre;
+                    break;
+
+                case InfoVenda.TotalAPagar:
+                    e.Valor = 10;
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
 
         private void TefOnOnComandaVendaImprimeVia(object sender, ComandaVendaImprimeViaEventArgs e)
@@ -73,7 +89,7 @@ namespace ACBr.Net.TEF.Demo
 
         private void btnInicializar_Click(object sender, EventArgs e)
         {
-            tef.Initializar(TEFTipo.TEFDial);
+            tef.Inicializar(TEFTipo.TEFDial);
         }
 
         private void btnATV_Click(object sender, EventArgs e)

@@ -37,7 +37,7 @@ using System.Globalization;
 namespace ACBr.Net.TEF
 {
     /// <summary>
-    /// Classe TEFLinha. Está classe não pode ser herdada.
+    /// Classe TEFLinha. Estï¿½ classe nï¿½o pode ser herdada.
     /// </summary>
     public sealed class TEFLinha : GenericClone<TEFLinha>
     {
@@ -69,20 +69,17 @@ namespace ACBr.Net.TEF
         /// Gets or sets the linha.
         /// </summary>
         /// <value>The linha.</value>
-        public string Linha
-        {
-            get
-            {
+        public string Linha {
+            get {
                 if (!linha.IsEmpty()) return linha;
                 return Identificacao > 0 ? $"{NomeCampo(Identificacao, Sequencia)}={Informacao}" : string.Empty;
             }
-            set
-            {
+            set {
                 if (linha == value) return;
 
                 linha = value;
 
-                var linhas = $"{linha} ".Split('=');
+                var linhas = linha.Split(new[] { " = " }, StringSplitOptions.None);
                 if (linha.IsEmpty() || linhas.Length == 0)
                 {
                     Informacao = string.Empty;
@@ -91,18 +88,18 @@ namespace ACBr.Net.TEF
                     return;
                 }
 
-                if (linhas.Length >= 1) return;
+                if (linhas.Length < 1) return;
                 Chave = linhas[0].Trim();
 
-                if (linhas.Length > 1) return;
+                if (linhas.Length < 2) return;
                 Informacao = linhas[1].Trim();
 
                 var chaves = Chave.Split('-');
 
-                if (chaves.Length >= 1) return;
+                if (chaves.Length < 1) return;
                 Identificacao = (short)chaves[0].ToInt32();
 
-                if (chaves.Length > 1) return;
+                if (chaves.Length < 2) return;
                 Sequencia = (short)chaves[1].ToInt32();
             }
         }
@@ -160,12 +157,7 @@ namespace ACBr.Net.TEF
         public DateTime AsDateTime()
         {
             var data = Informacao.OnlyNumbers();
-            var dia = data.Substring(0, 2).ToInt32();
-            var mes = data.Substring(2, 2).ToInt32();
-            var hora = data.Substring(4, 2).ToInt32();
-            var min = data.Substring(6, 2).ToInt32();
-            var seg = data.Substring(8, 2).ToInt32();
-            return new DateTime(DateTime.Now.Year, mes, dia, hora, min, seg);
+            return DateTime.ParseExact(data, "yyyyMMddHHmmss", CultureInfo.InvariantCulture);
         }
 
         /// <summary>

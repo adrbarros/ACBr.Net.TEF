@@ -33,6 +33,7 @@ using ACBr.Net.Core;
 using ACBr.Net.Core.Exceptions;
 using ACBr.Net.Core.Extensions;
 using ACBr.Net.Core.Logging;
+using ACBr.Net.TEF.Events;
 using ACBr.Net.TEF.Gerenciadores;
 using System;
 using System.Collections.Generic;
@@ -44,7 +45,6 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading;
-using ACBr.Net.TEF.Events;
 
 namespace ACBr.Net.TEF
 {
@@ -185,7 +185,7 @@ namespace ACBr.Net.TEF
 
         private TEFBase selectedTEF;
         private TEFTipo gpAtual;
-        private List<TEFBase> gerenciadores;
+        private TEFBase[] gerenciadores;
         private RespEstado estadoResp;
         private ReqEstado estadoReq;
         private DateTime? tempoInicialMensagemOperador;
@@ -276,6 +276,9 @@ namespace ACBr.Net.TEF
         public bool ConfirmarAntesDosComprovantes { get; set; }
 
         [Category("Geral")]
+        public bool ConfirmarDepoisDosComprovantes { get; set; }
+
+        [Category("Geral")]
         public bool ImprimirViaClienteReduzida { get; set; }
 
         /// <summary>
@@ -317,10 +320,10 @@ namespace ACBr.Net.TEF
         public bool SuportaReajusteValor { get; set; }
 
         [Category("Geral")]
-        public bool AutoEfetuarPagamento { get; set; }
+        public bool AutoFinalizarCupom { get; set; }
 
         [Category("Geral")]
-        public bool AutoFinalizarCupom { get; set; }
+        public bool IsDFe { get; set; }
 
         /// <summary>
         /// Gets the req.
@@ -434,13 +437,17 @@ namespace ACBr.Net.TEF
         /// Initializars the specified gp.
         /// </summary>
         /// <param name="gp">The gp.</param>
-        public void Initializar(TEFTipo gp = TEFTipo.Nenhum)
+        public void Inicializar(TEFTipo gp = TEFTipo.Nenhum)
         {
             Guard.Against<ACBrException>(OnExibeMensagem == null, "Evento [OnExibeMsg] não programado");
-            Guard.Against<ACBrException>(OnComandaVenda == null, "Evento [OnComandaECF] não programado");
-            Guard.Against<ACBrException>(OnComandaVendaAbreVinculado == null, "Evento [OnComandaECFAbreVinculado] não programado");
             Guard.Against<ACBrException>(OnComandaVendaImprimeVia == null, "Evento [OnComandaECFImprimeVia] não programado");
-            Guard.Against<ACBrException>(OnInfoVenda == null, "Evento [OnInfoECF] não programado");
+
+            if (!IsDFe)
+            {
+                Guard.Against<ACBrException>(OnComandaVenda == null, "Evento [OnComandaECF] não programado");
+                Guard.Against<ACBrException>(OnComandaVendaAbreVinculado == null, "Evento [OnComandaECFAbreVinculado] não programado");
+                Guard.Against<ACBrException>(OnInfoVenda == null, "Evento [OnInfoECF] não programado");
+            }
 
             if (!Directory.Exists(PathBackup))
             {
@@ -816,7 +823,7 @@ namespace ACBr.Net.TEF
                                 funcLiberarVenda();
 
                                 gerencialAberto = false;
-                                for (int j = 0; j < RespostasPendentes.Count; j++)
+                                for (var j = 0; j < RespostasPendentes.Count; j++)
                                 {
                                     var pendente = RespostasPendentes[j];
                                     GpAtual = pendente.TipoGP;
@@ -834,15 +841,13 @@ namespace ACBr.Net.TEF
                                         if (pendente.TextoEspecialOperador.IsEmpty())
                                         {
                                             removerMsg = true;
-                                            DoExibeMsg(OperacaoMensagem.ExibirMsgOperador,
-                                                pendente.TextoEspecialOperador);
+                                            DoExibeMsg(OperacaoMensagem.ExibirMsgOperador, pendente.TextoEspecialOperador);
                                         }
 
                                         if (pendente.TextoEspecialCliente.IsEmpty())
                                         {
                                             removerMsg = true;
-                                            DoExibeMsg(OperacaoMensagem.ExibirMsgCliente,
-                                                pendente.TextoEspecialCliente);
+                                            DoExibeMsg(OperacaoMensagem.ExibirMsgCliente, pendente.TextoEspecialCliente);
                                         }
                                     }
                                     else
@@ -907,13 +912,13 @@ namespace ACBr.Net.TEF
                             {
                                 var ordem = -1;
                                 var pagamentos = RespostasPendentes.OrderedAndGrouped;
-                                for (var k = 0; k < pagamentos.Length - 1; k++)
+                                for (var k = 0; k < pagamentos.Length; k++)
                                 {
                                     var pagamento = pagamentos[k];
                                     if (pagamento.OrdemPagamento >= 999)
                                         gerencial = true;
 
-                                    for (int j = 0; j < RespostasPendentes.Count - 1; j++)
+                                    for (var j = 0; j < RespostasPendentes.Count; j++)
                                     {
                                         var pendente = RespostasPendentes[j];
                                         if (pagamento.OrdemPagamento != pendente.OrdemPagamento)
@@ -934,15 +939,13 @@ namespace ACBr.Net.TEF
                                             if (pendente.TextoEspecialOperador.IsEmpty())
                                             {
                                                 removerMsg = true;
-                                                DoExibeMsg(OperacaoMensagem.ExibirMsgOperador,
-                                                    pendente.TextoEspecialOperador);
+                                                DoExibeMsg(OperacaoMensagem.ExibirMsgOperador, pendente.TextoEspecialOperador);
                                             }
 
                                             if (pendente.TextoEspecialCliente.IsEmpty())
                                             {
                                                 removerMsg = true;
-                                                DoExibeMsg(OperacaoMensagem.ExibirMsgCliente,
-                                                    pendente.TextoEspecialCliente);
+                                                DoExibeMsg(OperacaoMensagem.ExibirMsgCliente, pendente.TextoEspecialCliente);
                                             }
                                         }
                                         else
@@ -1046,7 +1049,7 @@ namespace ACBr.Net.TEF
             }
             finally
             {
-                if (!ConfirmarAntesDosComprovantes || !impressaoOk)
+                if (ConfirmarAntesDosComprovantes || !impressaoOk)
                 {
                     try
                     {
@@ -1061,7 +1064,7 @@ namespace ACBr.Net.TEF
                 }
                 else
                 {
-                    ConfirmarTransacoesPendentes();
+                    if (ConfirmarDepoisDosComprovantes) ConfirmarTransacoesPendentes();
                 }
 
                 BloquearMouseTeclado(false);
@@ -1069,7 +1072,7 @@ namespace ACBr.Net.TEF
                     DoExibeMsg(OperacaoMensagem.OK, msgAutenticacaoAExibir);
             }
 
-            RespostasPendentes.Clear();
+            if (ConfirmarAntesDosComprovantes | ConfirmarDepoisDosComprovantes) RespostasPendentes.Clear();
         }
 
         /// <summary>
@@ -1418,6 +1421,8 @@ namespace ACBr.Net.TEF
 
         internal EstadoVenda DoEstadoVenda()
         {
+            if (IsDFe) return EstadoVenda.Livre;
+
             var e = new InfoVendaEventArgs(InfoVenda.EstadoVenda);
             DoOnInfoVenda(e);
 
@@ -1508,6 +1513,8 @@ namespace ACBr.Net.TEF
 
         internal void DoVendaAbreVinculado(string documentoVinculado, string indicePagamento, decimal valor)
         {
+            if (IsDFe) return;
+
             Guard.Against<ACBrTEFPrintException>(OnComandaVendaAbreVinculado == null, "Evento [OnComandaECFAbreVinculado] não programado");
 
             try
@@ -1523,6 +1530,8 @@ namespace ACBr.Net.TEF
 
         internal void DoComandaVenda(OperacaoVenda operacao)
         {
+            if (IsDFe) return;
+
             Guard.Against<NullReferenceException>(OnComandaVenda == null, "Evento [OnComandaECF] não programado");
 
             this.Log().InfoFormat("{0} ComandaECF: Oper: {1}", selectedTEF.Name, operacao);
@@ -1591,16 +1600,16 @@ namespace ACBr.Net.TEF
         /// </summary>
         protected override void OnInitialize()
         {
-            gerenciadores = new List<TEFBase>();
-
             TEFDial = new TEFDial(this);
-            gerenciadores.Add(TEFDial);
-
             TEFDisc = new TEFDisc(this);
-            gerenciadores.Add(TEFDisc);
-
             TEFCliSiTef = new TEFCliSiTef(this);
-            gerenciadores.Add(TEFCliSiTef);
+
+            gerenciadores = new TEFBase[]
+            {
+                TEFDial,
+                TEFDisc,
+                TEFCliSiTef
+            };
 
             GpAtual = TEFTipo.Nenhum;
             Identificacao = new IdentificacaoTEF();
